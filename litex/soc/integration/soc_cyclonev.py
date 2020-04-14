@@ -1,9 +1,9 @@
-# This file is Copyright (c) 2019 Florent Kermarrec <florent@enjoy-digital.fr>
+# This file is Copyright (c) 2020 Ignacio Lesser <ignacio.lesser@gmail.com>
 # License: BSD
 
 import os
 
-from migen import *
+from migen import Signal, ResetSignal, ClockSignal, Instance, log2_int
 
 from litex.build.generic_platform import tools
 from litex.soc.integration.soc_core import SoCCore
@@ -11,19 +11,7 @@ from litex.soc.integration.cpu_interface import get_csr_header
 from litex.soc.interconnect import wishbone
 from litex.soc.interconnect import axi
 
-# Record layouts -----------------------------------------------------------------------------------
-
-def axi_fifo_ctrl_layout():
-    return [
-        ("racount",         3, DIR_M_TO_S),
-        ("rcount",          8, DIR_M_TO_S),
-        ("rdissuecapen",    1, DIR_S_TO_M),
-        ("wacount",         6, DIR_M_TO_S),
-        ("wcount",          8, DIR_M_TO_S),
-        ("wrissuecapen",    1, DIR_S_TO_M),
-    ]
-
-# SoC Zynq -----------------------------------------------------------------------------------------
+# SoC Cyclone V ------------------------------------------------------------------------------------
 
 class SoCCycloneV(SoCCore):
 
