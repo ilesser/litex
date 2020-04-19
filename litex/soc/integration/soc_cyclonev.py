@@ -2,12 +2,14 @@
 # License: BSD
 
 import os
+import inspect
 
 from migen import Signal, ResetSignal, ClockSignal, Instance, log2_int
 
 from litex.build.generic_platform import tools
-from litex.soc.integration.soc_core import SoCCore
+from litex.soc.integration.soc_core import SoCCore, soc_core_args, soc_core_argdict
 from litex.soc.integration.cpu_interface import get_csr_header
+from litex.soc.integration.soc import auto_int
 from litex.soc.interconnect import wishbone
 from litex.soc.interconnect import axi
 
@@ -16,8 +18,13 @@ from litex.soc.interconnect import axi
 class SoCCycloneV(SoCCore):
 
     hps_name = "hps_0"
-    def __init__(self, platform, clk_freq, **kwargs):
-        SoCCore.__init__(self, platform, clk_freq, cpu_type=None, **kwargs)
+    def __init__(self, platform, clk_freq, hps=False, h2f_width=62, f2h_width=64, **kwargs):
+
+        kwargs["cpu_type"] = None if hps else kwargs.get("cpu_type", None)
+        super(SoCCore, self).__init__(self, platform, clk_freq, **kwargs)
+        self.hps = hps
+        self.h2f_width = h2f_width
+        self.f2h_width = f2h_width
 
         # CycloneV (Minimal) ----------------------------------------------------------------------------
         fclk_reset0_n = Signal()
@@ -367,3 +374,24 @@ class SoCCycloneV(SoCCore):
                                     self.constants,
                                     with_access_functions=False)
         tools.write_to_file(filename, csr_header)
+
+# SoCCyclonev arguments --------------------------------------------------------------------------------
+
+def soc_cyclonev_args(parser):
+    soc_core_args(parser)
+    # HPS
+    parser.add_argument("--hps", action="store_true",
+                        help="Enable HPS (default=False)")
+    # h2f_width
+    parser.add_argument("--h2f-width", default=64, type=auto_int, choices=[32,64,128],
+                        help="HPS-to-FPGA Bridge width (default=64)")
+    # f2h_width
+    parser.add_argument("--f2h-width", default=64, type=auto_int, choices=[32,64,128],
+                        help="FPGA-to-HPS Bridge width (default=64)")
+
+def soc_cyclonev_argdict(args):
+    r = soc_core_argdict(args)
+    for a in inspect.getargspec(SoCCycloneV.__init__).args:
+        if a not in ["self", "platform", "clk_freq"]:
+            r[a] = getattr(args, a)
+    return r
