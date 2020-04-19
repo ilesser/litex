@@ -11,7 +11,8 @@ from litex.soc.integration.soc_core import SoCCore, soc_core_args, soc_core_argd
 from litex.soc.integration.cpu_interface import get_csr_header
 from litex.soc.integration.soc import auto_int
 from litex.soc.interconnect import wishbone
-from litex.soc.interconnect import axi
+from litex.soc.interconnect.axi import AXIInterface, AXILiteInterface
+from litex.soc.interconnect.axi import AXI2Wishbone, AXILite2Wishbone, Wishbone2AXI
 
 # SoC Cyclone V ------------------------------------------------------------------------------------
 
@@ -26,19 +27,39 @@ class SoCCycloneV(SoCCore):
         self.h2f_width = h2f_width
         self.f2h_width = f2h_width
 
-        # CycloneV (Minimal) ----------------------------------------------------------------------------
-        fclk_reset0_n = Signal()
+        # CycloneV (HPS) --------------------------------------------------------------------------------
+        if self.hps:
+            # TODO: how to call hps ip? where is it? name? extension?
+            # everything we need to build the hps ip is under
+            # ${QUARTUS_ROOTDIR}/../ip/altera/hps
+            # I need to generate a QSYS file for the HPS
+            # platform.add_ip(os.path.join("ip", f"{self.platform.name}_{self.hps_name}.qsys"))
+            platform.add_ip(os.path.join("hps", f"{self.platform.name}.qsys"))
 
+            self.add_hps_minimal(platform)
+            self.add_hps_peripherials(platform)
+            self.add_hps_fpga_interfaces(platform)
+            self.add_hps_platform_specific_ios(platform)
+
+    # HPS minimal configuration --------------------------------------------------------------------
+
+    def add_hps_minimal(self, platform):
+
+        print(platform.request("hps"))
+        print(platform.constraint_manager.available)
         hps_pads = platform.request("hps")
         hps_ddram_pads = platform.request("hps_ddram")
-
         self.hps_params = dict(
-            i_key   = hps_pads.nrst,
-            o_hps_io_gpio_inst_GPIO53 = hps_pads.led,
-            i_hps_io_gpio_inst_GPIO54 = hps_pads.key,
-            io_hps_io_gpio_inst_GPIO40 = hps_pads.ltc_gpio,
-            io_hps_io_gpio_inst_GPIO61 = hps_pads.gsensor_int,
-            io_hps_io_gpio_inst_GPIO48 = hps_pads.i2c_control,
+            # Bridges clk/rst
+            i_clk_clk = ClockSignal("sys"),
+            i_reset_reset_n = ResetSignal("sys"),
+            i_npor  = hps_pads.npor,
+            i_nrst  = hps_pads.nrst,
+            # TODO: add rst_req signals inside hps_0? these are created with pulse detectors
+            # o_h2f_rst_n,                //           h2f_reset.reset_n
+            # i_f2h_cold_rst_req_n,       //  f2h_cold_reset_req.reset_n
+            # i_f2h_dbg_rst_req_n,        // f2h_debug_reset_req.reset_n
+            # i_f2h_warm_rst_req_n,       //  f2h_warm_reset_req.reset_n
 
             # HPS ddram
             o_mem_a         = hps_ddram_pads.a,
@@ -58,29 +79,14 @@ class SoCCycloneV(SoCCore):
             o_mem_dm        = hps_ddram_pads.dm,
             i_oct_rzqin     = hps_ddram_pads.rzq,
 
-            # Bridges clk/rst
-            i_clk_clk = ClockSignal("sys"),
-            i_reset_reset_n = fclk_reset0_n,
-            # clk/rst
-            # TODO: add reset syncrhonizer to hps_0?
-            # TODO: add rst_req signals inside hps_0? these are created with pulse detectors
-            # i_clk   = hps_pads.clk, # must connect to the
-            i_npor  = hps_pads.npor,
-            i_nrst  = hps_pads.nrst,
-            # o_h2f_rst_n,                //           h2f_reset.reset_n
-            # i_f2h_cold_rst_req_n,       //  f2h_cold_reset_req.reset_n
-            # i_f2h_dbg_rst_req_n,        // f2h_debug_reset_req.reset_n
-            # i_f2h_warm_rst_req_n,       //  f2h_warm_reset_req.reset_n
         )
-        self.comb += ResetSignal("sys").eq(~fclk_reset0_n)
-        # TODO: how to call hps ip? where is it? name? extension?
-        # everything we need to build the hps ip is under
-        # ${QUARTUS_ROOTDIR}/../ip/altera/hps
-        # I need to generate a QSYS file for the HPS
-        platform.add_ip(os.path.join("ip", self.hps_name + ".qsys"))
 
-        self.add_hps_peripherials(platform)
-        self.add_hps_fpga_interfaces()
+    # HPS platform specific ------------------------------------------------------------------------
+
+    def add_hps_platform_specific_ios(self, platform):
+        if hasattr(platform, "add_hps_platform_specific_ios"):
+            print(platform.request("hps"))
+            platform.add_hps_platform_specific_ios(self.hps_params)
 
     # HPS peripherials -----------------------------------------------------------------------------
 
@@ -94,6 +100,9 @@ class SoCCycloneV(SoCCore):
         hps_i2c0_pads = platform.request("hps_i2c", 0)
         hps_i2c1_pads = platform.request("hps_i2c", 1)
 
+        # TODO: I should add the peripherials conditionally if they exist in the platform
+        # TODO: Map the preripherials to memory space
+        # ConstraintError: Resource not found: hps:None
         self.hps_params.update(
             # HPS ethernet
             o_hps_io_emac1_inst_TX_CLK = hps_enet_pads.gtx_clk,
@@ -164,75 +173,24 @@ class SoCCycloneV(SoCCore):
 
     # HPS-FPGA interfaces --------------------------------------------------------------------------
 
-    def add_hps_fpga_interfaces(self):
-        # self.add_f2h_axi()
+    def add_hps_fpga_interfaces(self, platform):
         self.add_h2f_axi()
         self.add_h2f_axi_lw()
-
-    # FPGA-2-HPS AXI -------------------------------------------------------------------------------
-
-    def add_f2h_axi(self): # TODO id width????
-        self.f2h_axi = f2h_axi = axi.AXIInterface(data_width=self.f2h_width, address_width=32, id_width=8)
-        self.add_wishbone_to_axi(f2h_axi, base_address=0x43c00000) # TODO: address??
-        self.hps_params.update(
-            # f2h_axi clk
-            i_f2h_axi_clk = ClockSignal("sys"),
-
-            # f2h_axi aw
-            i_f2h_AWVALID = f2h_axi.aw.valid,
-            o_f2h_AWREADY = f2h_axi.aw.ready,
-            i_f2h_AWADDR  = f2h_axi.aw.addr,
-            i_f2h_AWBURST = f2h_axi.aw.burst,
-            i_f2h_AWLEN   = f2h_axi.aw.len,
-            i_f2h_AWSIZE  = f2h_axi.aw.size,
-            i_f2h_AWID    = f2h_axi.aw.id,
-            i_f2h_AWLOCK  = f2h_axi.aw.lock,
-            i_f2h_AWPROT  = f2h_axi.aw.prot,
-            i_f2h_AWCACHE = f2h_axi.aw.cache,
-            i_f2h_AWUSER  = f2h_axi.aw.user,
-
-            # f2h_axi w
-            i_f2h_WVALID = f2h_axi.w.valid,
-            i_f2h_WLAST  = f2h_axi.w.last,
-            o_f2h_WREADY = f2h_axi.w.ready,
-            i_f2h_WID    = f2h_axi.w.id,
-            i_f2h_WDATA  = f2h_axi.w.data,
-            i_f2h_WSTRB  = f2h_axi.w.strb,
-
-            # f2h_axi b
-            o_f2h_BVALID = f2h_axi.b.valid,
-            i_f2h_BREADY = f2h_axi.b.ready,
-            o_f2h_BID    = f2h_axi.b.id,
-            o_f2h_BRESP  = f2h_axi.b.resp,
-
-            # f2h_axi ar
-            i_f2h_ARVALID = f2h_axi.ar.valid,
-            o_f2h_ARREADY = f2h_axi.ar.ready,
-            i_f2h_ARADDR  = f2h_axi.ar.addr,
-            i_f2h_ARBURST = f2h_axi.ar.burst,
-            i_f2h_ARLEN   = f2h_axi.ar.len,
-            i_f2h_ARID    = f2h_axi.ar.id,
-            i_f2h_ARLOCK  = f2h_axi.ar.lock,
-            i_f2h_ARSIZE  = f2h_axi.ar.size,
-            i_f2h_ARPROT  = f2h_axi.ar.prot,
-            i_f2h_ARCACHE = f2h_axi.ar.cache,
-            i_f2h_ARUSER  = f2h_axi.ar.user,
-
-            # f2h_axi r
-            o_f2h_RVALID = f2h_axi.r.valid,
-            i_f2h_RREADY = f2h_axi.r.ready,
-            o_f2h_RLAST  = f2h_axi.r.last,
-            o_f2h_RID    = f2h_axi.r.id,
-            o_f2h_RRESP  = f2h_axi.r.resp,
-            o_f2h_RDATA  = f2h_axi.r.data,
-
-        )
+        self.add_f2h_axi()
+        self.add_f2h_sdram_axi()
 
     # HPS-2-FPGA AXI -------------------------------------------------------------------------------
 
-    def add_h2f_axi(self): # TODO id width????
-        self.h2f_axi = h2f_axi = axi.AXIInterface(data_width=self.h2f_width, address_width=32, id_width=8)
-        self.add_axi_to_wishbone(h2f_axi, base_address=0x43d00000) # TODO: address??
+    def add_h2f_axi(self):
+        self.h2f_axi = h2f_axi = AXIInterface(
+            data_width=self.h2f_width,
+            address_width=30,
+            id_width=12
+        )
+        # base address = 0xC0000000
+        # end  address = 0xFBFFFFFF
+        # size =  960MB
+        self.add_axi_to_wishbone(h2f_axi, base_address=0xC0000000)
         self.hps_params.update(
             # h2f_axi clk
             i_h2f_axi_clk = ClockSignal("sys"),
@@ -289,8 +247,14 @@ class SoCCycloneV(SoCCore):
     # HPS-2-FPGA AXI ligth-weight ------------------------------------------------------------------
 
     def add_h2f_axi_lw(self):
-        self.h2f_axi_lw = h2f_axi_lw = axi.AXILiteInterface(data_width=32, address_width=32)
-        self.add_axi_lw_to_wishbone(h2f_axi_lw, base_address=0x43e00000) # TODO: address??
+        self.h2f_axi_lw = h2f_axi_lw = AXILiteInterface(
+            data_width=32,
+            address_width=21
+        )
+        # base address = 0xFF200000
+        # end  address = 0xFF3FFFFF
+        # size = 2MB
+        self.add_axi_lw_to_wishbone(h2f_axi_lw, base_address=0xFF200000)
         # TODO: Are constant values OK?
         self.hps_params.update(
             # h2f_lw_axi clk
@@ -302,8 +266,8 @@ class SoCCycloneV(SoCCore):
             i_h2f_lw_AWADDR  = h2f_axi_lw.aw.addr,
             i_h2f_lw_AWBURST = 1,
             i_h2f_lw_AWLEN   = 1,
-            i_h2f_lw_AWSIZE  = 32,
-            i_h2f_lw_AWID    = 1,
+            i_h2f_lw_AWSIZE  = 1,
+            i_h2f_lw_AWID    = 0,
             i_h2f_lw_AWLOCK  = 0,
             i_h2f_lw_AWPROT  = 0,
             i_h2f_lw_AWCACHE = 0,
@@ -312,14 +276,14 @@ class SoCCycloneV(SoCCore):
             i_h2f_lw_WVALID = h2f_axi_lw.w.valid,
             i_h2f_lw_WLAST  = h2f_axi_lw.w.last,
             o_h2f_lw_WREADY = h2f_axi_lw.w.ready,
-            i_h2f_lw_WID    = 1,
+            i_h2f_lw_WID    = 0,
             i_h2f_lw_WDATA  = h2f_axi_lw.w.data,
             i_h2f_lw_WSTRB  = h2f_axi_lw.w.strb,
 
             # h2f_lw b
             o_h2f_lw_BVALID = h2f_axi_lw.b.valid,
             i_h2f_lw_BREADY = h2f_axi_lw.b.ready,
-            o_h2f_lw_BID    = 1,
+            o_h2f_lw_BID    = 0,
             o_h2f_lw_BRESP  = h2f_axi_lw.b.resp,
 
             # h2f_lw ar
@@ -328,8 +292,8 @@ class SoCCycloneV(SoCCore):
             i_h2f_lw_ARADDR  = h2f_axi_lw.ar.addr,
             i_h2f_lw_ARBURST = 1,
             i_h2f_lw_ARLEN   = 1,
-            i_h2f_lw_ARSIZE  = 32,
-            i_h2f_lw_ARID    = 1,
+            i_h2f_lw_ARSIZE  = 1,
+            i_h2f_lw_ARID    = 0,
             i_h2f_lw_ARLOCK  = 0,
             i_h2f_lw_ARPROT  = 0,
             i_h2f_lw_ARCACHE = 0,
@@ -338,30 +302,163 @@ class SoCCycloneV(SoCCore):
             o_h2f_lw_RVALID = h2f_axi_lw.r.valid,
             i_h2f_lw_RREADY = h2f_axi_lw.r.ready,
             o_h2f_lw_RLAST  = h2f_axi_lw.r.last,
-            o_h2f_lw_RID    = 1,
+            o_h2f_lw_RID    = 0,
             o_h2f_lw_RRESP  = h2f_axi_lw.r.resp,
             o_h2f_lw_RDATA  = h2f_axi_lw.r.data,
 
         )
-
     # TODO: what addres to use?
-    def add_wishbone_to_axi(self, axi_port, base_address=0x43c00000):
-        wb = wishbone.Interface(data_width=axi_port.data_width, adr_width=axi_port.address_width)
-        wishbone2axi = axi.Wishbone2AXI(wb, axi_port, base_address)
-        self.submodules += wishbone2axi
-        self.add_wb_slave(wb)
 
-    def add_axi_to_wishbone(self, axi_port, base_address=0x43c00000):
-        wishbone_adr_shift = log2_int(axi_port.data_width//8)
-        wb = wishbone.Interface(data_width=axi_port.data_width, adr_width=axi_port.address_width-wishbone_adr_shift)
-        axi2wishbone = axi.AXI2Wishbone(axi_port, wb, base_address)
+    # FPGA-2-HPS AXI -------------------------------------------------------------------------------
+
+    def add_f2h_axi(self):
+        self.f2h_axi = f2h_axi = AXIInterface(
+            data_width=self.f2h_width,
+            address_width=32,
+            id_width=8
+        )
+        # base address = 0x80000000
+        # end  address = 0xBFFFFFFF
+        # size =  1024MB
+        #TODO: address??
+        address=0x10000000
+        self.add_wishbone_to_axi(f2h_axi, address, base_address=0xFF600000)
+        self.hps_params.update(
+            # f2h_axi clk
+            i_f2h_axi_clk = ClockSignal("sys"),
+
+            # f2h_axi aw
+            i_f2h_AWVALID = f2h_axi.aw.valid,
+            o_f2h_AWREADY = f2h_axi.aw.ready,
+            i_f2h_AWADDR  = f2h_axi.aw.addr,
+            i_f2h_AWBURST = f2h_axi.aw.burst,
+            i_f2h_AWLEN   = f2h_axi.aw.len,
+            i_f2h_AWSIZE  = f2h_axi.aw.size,
+            i_f2h_AWID    = f2h_axi.aw.id,
+            i_f2h_AWLOCK  = f2h_axi.aw.lock,
+            i_f2h_AWPROT  = f2h_axi.aw.prot,
+            i_f2h_AWCACHE = f2h_axi.aw.cache,
+            # i_f2h_AWUSER  = f2h_axi.aw.user,     #TODO xuser?
+
+            # f2h_axi w
+            i_f2h_WVALID = f2h_axi.w.valid,
+            i_f2h_WLAST  = f2h_axi.w.last,
+            o_f2h_WREADY = f2h_axi.w.ready,
+            i_f2h_WID    = f2h_axi.w.id,
+            i_f2h_WDATA  = f2h_axi.w.data,
+            i_f2h_WSTRB  = f2h_axi.w.strb,
+
+            # f2h_axi b
+            o_f2h_BVALID = f2h_axi.b.valid,
+            i_f2h_BREADY = f2h_axi.b.ready,
+            o_f2h_BID    = f2h_axi.b.id,
+            o_f2h_BRESP  = f2h_axi.b.resp,
+
+            # f2h_axi ar
+            i_f2h_ARVALID = f2h_axi.ar.valid,
+            o_f2h_ARREADY = f2h_axi.ar.ready,
+            i_f2h_ARADDR  = f2h_axi.ar.addr,
+            i_f2h_ARBURST = f2h_axi.ar.burst,
+            i_f2h_ARLEN   = f2h_axi.ar.len,
+            i_f2h_ARID    = f2h_axi.ar.id,
+            i_f2h_ARLOCK  = f2h_axi.ar.lock,
+            i_f2h_ARSIZE  = f2h_axi.ar.size,
+            i_f2h_ARPROT  = f2h_axi.ar.prot,
+            i_f2h_ARCACHE = f2h_axi.ar.cache,
+            # i_f2h_ARUSER  = f2h_axi.ar.user,     #TODO xuser?
+
+            # f2h_axi r
+            o_f2h_RVALID = f2h_axi.r.valid,
+            i_f2h_RREADY = f2h_axi.r.ready,
+            o_f2h_RLAST  = f2h_axi.r.last,
+            o_f2h_RID    = f2h_axi.r.id,
+            o_f2h_RRESP  = f2h_axi.r.resp,
+            o_f2h_RDATA  = f2h_axi.r.data,
+
+        )
+
+    # FPGA-2-HPS SDRAM AXI -------------------------------------------------------------------------------
+
+    def add_f2h_sdram_axi(self):
+        self.f2h_sdram_axi = f2h_sdram_axi = AXIInterface(
+            data_width=64,
+            address_width=32,
+            id_width=8
+        )
+        #TODO: address??
+        address=0x20000000
+        self.add_wishbone_to_axi(f2h_sdram_axi, address, base_address=0xFFC20000)
+        self.hps_params.update(
+            # f2h_sdram_axi clk
+            i_f2h_sdram_axi_clk = ClockSignal("sys"),
+
+            # f2h_sdram_axi aw
+            i_f2h_sdram_AWVALID = f2h_sdram_axi.aw.valid,
+            o_f2h_sdram_AWREADY = f2h_sdram_axi.aw.ready,
+            i_f2h_sdram_AWADDR  = f2h_sdram_axi.aw.addr,
+            i_f2h_sdram_AWBURST = f2h_sdram_axi.aw.burst,
+            i_f2h_sdram_AWLEN   = f2h_sdram_axi.aw.len,
+            i_f2h_sdram_AWSIZE  = f2h_sdram_axi.aw.size,
+            i_f2h_sdram_AWID    = f2h_sdram_axi.aw.id,
+            i_f2h_sdram_AWLOCK  = f2h_sdram_axi.aw.lock,
+            i_f2h_sdram_AWPROT  = f2h_sdram_axi.aw.prot,
+            i_f2h_sdram_AWCACHE = f2h_sdram_axi.aw.cache,
+            # i_f2h_sdram_AWUSER  = f2h_sdram_axi.aw.user,      # TODO xuser?
+
+            # f2h_sdram_axi w
+            i_f2h_sdram_WVALID = f2h_sdram_axi.w.valid,
+            i_f2h_sdram_WLAST  = f2h_sdram_axi.w.last,
+            o_f2h_sdram_WREADY = f2h_sdram_axi.w.ready,
+            i_f2h_sdram_WID    = f2h_sdram_axi.w.id,
+            i_f2h_sdram_WDATA  = f2h_sdram_axi.w.data,
+            i_f2h_sdram_WSTRB  = f2h_sdram_axi.w.strb,
+
+            # f2h_sdram_axi b
+            o_f2h_sdram_BVALID = f2h_sdram_axi.b.valid,
+            i_f2h_sdram_BREADY = f2h_sdram_axi.b.ready,
+            o_f2h_sdram_BID    = f2h_sdram_axi.b.id,
+            o_f2h_sdram_BRESP  = f2h_sdram_axi.b.resp,
+
+            # f2h_sdram_axi ar
+            i_f2h_sdram_ARVALID = f2h_sdram_axi.ar.valid,
+            o_f2h_sdram_ARREADY = f2h_sdram_axi.ar.ready,
+            i_f2h_sdram_ARADDR  = f2h_sdram_axi.ar.addr,
+            i_f2h_sdram_ARBURST = f2h_sdram_axi.ar.burst,
+            i_f2h_sdram_ARLEN   = f2h_sdram_axi.ar.len,
+            i_f2h_sdram_ARID    = f2h_sdram_axi.ar.id,
+            i_f2h_sdram_ARLOCK  = f2h_sdram_axi.ar.lock,
+            i_f2h_sdram_ARSIZE  = f2h_sdram_axi.ar.size,
+            i_f2h_sdram_ARPROT  = f2h_sdram_axi.ar.prot,
+            i_f2h_sdram_ARCACHE = f2h_sdram_axi.ar.cache,
+            # i_f2h_sdram_ARUSER  = f2h_sdram_axi.ar.user,      # TODO xuser?
+
+            # f2h_sdram_axi r
+            o_f2h_sdram_RVALID = f2h_sdram_axi.r.valid,
+            i_f2h_sdram_RREADY = f2h_sdram_axi.r.ready,
+            o_f2h_sdram_RLAST  = f2h_sdram_axi.r.last,
+            o_f2h_sdram_RID    = f2h_sdram_axi.r.id,
+            o_f2h_sdram_RRESP  = f2h_sdram_axi.r.resp,
+            o_f2h_sdram_RDATA  = f2h_sdram_axi.r.data,
+
+        )
+
+    def add_wishbone_to_axi(self, axi, address, base_address=0x00000000):
+        wb = wishbone.Interface(data_width=axi.data_width, adr_width=axi.address_width)
+        wishbone2axi = Wishbone2AXI(wb, axi, self.platform, base_address=base_address)
+        self.submodules += wishbone2axi
+        self.add_wb_slave(address, wb)
+
+    def add_axi_to_wishbone(self, axi, base_address=0x00000000):
+        wishbone_adr_shift = log2_int(axi.data_width//8)
+        wb = wishbone.Interface(data_width=axi.data_width, adr_width=axi.address_width-wishbone_adr_shift)
+        axi2wishbone = AXI2Wishbone(axi, wb, base_address)
         self.submodules += axi2wishbone
         self.add_wb_master(wb)
 
-    def add_axi_lw_to_wishbone(self, axi_port, base_address=0x43c00000):
-        wishbone_adr_shift = log2_int(axi_port.data_width//8)
-        wb = wishbone.Interface(data_width=axi_port.data_width, adr_width=axi_port.address_width-wishbone_adr_shift)
-        axilw2wishbone = axi.AXILite2Wishbone(axi_port, wb, base_address)
+    def add_axi_lw_to_wishbone(self, axi_lite, base_address=0x00000000):
+        wishbone_adr_shift = log2_int(axi_lite.data_width//8)
+        wb = wishbone.Interface(data_width=axi_lite.data_width, adr_width=axi_lite.address_width-wishbone_adr_shift)
+        axilw2wishbone = AXILite2Wishbone(axi_lite, wb, base_address)
         self.submodules += axilw2wishbone
         self.add_wb_master(wb)
 
