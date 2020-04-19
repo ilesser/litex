@@ -22,7 +22,7 @@ class SoCCycloneV(SoCCore):
     def __init__(self, platform, clk_freq, hps=False, h2f_width=62, f2h_width=64, **kwargs):
 
         kwargs["cpu_type"] = None if hps else kwargs.get("cpu_type", "None")
-        SoCCore.__init__(self, platform, clk_freq, **kwargs)
+        super().__init__(platform, clk_freq, **kwargs)
         self.hps = hps
         self.h2f_width = h2f_width
         self.f2h_width = f2h_width
@@ -36,25 +36,22 @@ class SoCCycloneV(SoCCore):
             # platform.add_ip(os.path.join("ip", f"{self.platform.name}_{self.hps_name}.qsys"))
             platform.add_ip(os.path.join("hps", f"{self.platform.name}.qsys"))
 
-            self.add_hps_minimal(platform)
-            self.add_hps_peripherials(platform)
-            self.add_hps_fpga_interfaces(platform)
-            self.add_hps_platform_specific_ios(platform)
+            self.add_hps_minimal()
+            self.add_hps_peripherials()
+            self.add_hps_fpga_interfaces()
 
     # HPS minimal configuration --------------------------------------------------------------------
 
-    def add_hps_minimal(self, platform):
+    def add_hps_minimal(self):
 
-        print(platform.request("hps"))
-        print(platform.constraint_manager.available)
-        hps_pads = platform.request("hps")
-        hps_ddram_pads = platform.request("hps_ddram")
+        hps_rst = self.platform.request("hps_rst")
+        hps_ddram_pads = self.platform.request("hps_ddram")
         self.hps_params = dict(
             # Bridges clk/rst
             i_clk_clk = ClockSignal("sys"),
             i_reset_reset_n = ResetSignal("sys"),
-            i_npor  = hps_pads.npor,
-            i_nrst  = hps_pads.nrst,
+            i_npor  = hps_rst.npor,
+            i_nrst  = hps_rst.nrst,
             # TODO: add rst_req signals inside hps_0? these are created with pulse detectors
             # o_h2f_rst_n,                //           h2f_reset.reset_n
             # i_f2h_cold_rst_req_n,       //  f2h_cold_reset_req.reset_n
@@ -81,24 +78,16 @@ class SoCCycloneV(SoCCore):
 
         )
 
-    # HPS platform specific ------------------------------------------------------------------------
-
-    def add_hps_platform_specific_ios(self, platform):
-        if hasattr(platform, "add_hps_platform_specific_ios"):
-            print(platform.request("hps"))
-            platform.add_hps_platform_specific_ios(self.hps_params)
-
     # HPS peripherials -----------------------------------------------------------------------------
 
-    def add_hps_peripherials(self, platform):
-        hps_enet_pads = platform.request("hps_enet")
-        hps_usb_pads = platform.request("hps_usb")
-        hps_flash_pads = platform.request("hps_flash")
-        hps_sd_pads = platform.request("hps_sd")
-        hps_spim_pads = platform.request("hps_spim")
-        hps_uart_pads = platform.request("hps_uart")
-        hps_i2c0_pads = platform.request("hps_i2c", 0)
-        hps_i2c1_pads = platform.request("hps_i2c", 1)
+
+
+        hps_usb_pads = self.platform.request("hps_usb")
+        hps_sd_pads = self.platform.request("hps_sd")
+        hps_spim_pads = self.platform.request("hps_spim")
+        hps_uart_pads = self.platform.request("hps_uart")
+        hps_i2c0_pads = self.platform.request("hps_i2c", 0)
+        hps_i2c1_pads = self.platform.request("hps_i2c", 1)
 
         # TODO: I should add the peripherials conditionally if they exist in the platform
         # TODO: Map the preripherials to memory space
@@ -119,7 +108,6 @@ class SoCCycloneV(SoCCore):
             i_hps_io_emac1_inst_RXD1   = hps_enet_pads.rx_data[1],
             i_hps_io_emac1_inst_RXD2   = hps_enet_pads.rx_data[2],
             i_hps_io_emac1_inst_RXD3   = hps_enet_pads.rx_data[3],
-            io_hps_io_gpio_inst_GPIO35 = hps_enet_pads.int_n,
 
             # HPS QSPI
             io_hps_io_qspi_inst_IO0 = hps_flash_pads.data[0],
@@ -158,7 +146,6 @@ class SoCCycloneV(SoCCore):
             io_hps_io_spim1_inst_SS0 = hps_spim_pads.ss,
 
             # HPS UART
-            io_hps_io_gpio_inst_GPIO09 = hps_uart_pads.conv_usb_n,
             i_hps_io_uart0_inst_RX     = hps_uart_pads.rx,
             o_hps_io_uart0_inst_TX     = hps_uart_pads.tx,
 
@@ -173,7 +160,7 @@ class SoCCycloneV(SoCCore):
 
     # HPS-FPGA interfaces --------------------------------------------------------------------------
 
-    def add_hps_fpga_interfaces(self, platform):
+    def add_hps_fpga_interfaces(self):
         self.add_h2f_axi()
         self.add_h2f_axi_lw()
         self.add_f2h_axi()
@@ -463,7 +450,7 @@ class SoCCycloneV(SoCCore):
         self.add_wb_master(wb)
 
     def do_finalize(self):
-        SoCCore.do_finalize(self)
+        super().do_finalize()
         if self.hps:
             self.specials += Instance(self.hps_name, **self.hps_params)
 
