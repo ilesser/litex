@@ -32,6 +32,7 @@ class SoCCycloneV(SoCCore):
             self.add_hps_minimal()
             self.add_hps_peripherials()
             self.add_hps_fpga_interfaces()
+            self.add_hps_regions()
 
     # HPS minimal configuration --------------------------------------------------------------------
 
@@ -459,6 +460,47 @@ class SoCCycloneV(SoCCore):
         axilw2wishbone = AXILite2Wishbone(axi_lite, wb, base_address)
         self.submodules += axilw2wishbone
         self.add_wb_master(wb)
+
+    @property
+    def io_regions(self):
+        #TODO
+        return {
+            0xF0000000: 0xF0000000,
+        }
+
+    @property
+    def mem_map_linux(self):
+        #TODO
+        return {
+            "rom":          0x00000000,
+            "sram":         0x10000000,
+            "main_ram":     0x40000000,
+            "csr":          0xF0000000,
+        }
+
+    def add_hps_regions(self):
+        self.buses     = [self.h2f_axi, self.h2f_axi_lw, self.f2h_axi, self.f2h_sdram_axi]
+        self.interrupt = Signal(32)
+        for n, (origin, size) in enumerate(self.io_regions.items()):
+            self.bus.add_region("io{}".format(n), SoCIORegion(origin=origin, size=size, cached=False))
+        self.mem_map = self.mem_map_linux # FIXME
+        # self.csr.update_alignment(self.cpu.data_width)
+        # # Add Bus Masters/CSR/IRQs
+        # if not isinstance(self.cpu, cpu.CPUNone):
+            # if reset_address is None:
+                # reset_address = self.mem_map["rom"]
+            # self.cpu.set_reset_address(reset_address)
+            # for n, cpu_bus in enumerate(self.cpu.buses):
+                # self.bus.add_master(name="cpu_bus{}".format(n), master=cpu_bus)
+            # self.csr.add("cpu", use_loc_if_exists=True)
+            # for name, loc in self.cpu.interrupts.items():
+                # self.irq.add(name, loc)
+            # if hasattr(self, "ctrl"):
+                # self.comb += self.cpu.reset.eq(self.ctrl.reset)
+            # self.add_config("CPU_RESET_ADDR", reset_address)
+        # # Add constants
+        # self.add_config("CPU_TYPE",    str(name))
+        # self.add_config("CPU_VARIANT", str(variant.split('+')[0]))
 
     def do_finalize(self):
         super().do_finalize()
