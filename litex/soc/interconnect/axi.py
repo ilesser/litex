@@ -483,3 +483,128 @@ class Wishbone2AXILite(Module):
             wishbone.err.eq(1),
             NextState("IDLE")
         )
+
+class Wishbone2AXI(Module):
+    def __init__(self, wishbone, axi, platform, base_address=0x00000000):
+        # Use ZipCPU Wishbone-to-AXI modules
+        # First do Wishbone classic to Wishbone pipeline
+        # Then do Wishbone pipeline to AXI
+        #              +--------------+                           +-----------+
+        # wishbone --> | wbc2pipeline | --> wishbone_pipeline --> | wbm2axisp | --> axi
+        #              +--------------+                           +-----------+
+        #              (M)          (S)                           (M)       (S)
+        vdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'verilog')
+        # TODO: add verilog sources
+        platform.add_source(os.path.join(vdir, "wbc2pipeline.v"))
+        platform.add_source(os.path.join(vdir, "wbm2axisp.v"))
+        wishbone_pipeline_cyc   = Signal()
+        wishbone_pipeline_stb   = Signal()
+        wishbone_pipeline_we    = Signal()
+        wishbone_pipeline_adr   = Signal()
+        wishbone_pipeline_dat_r = Signal()
+        wishbone_pipeline_sel   = Signal()
+        wishbone_pipeline_stall = Signal()
+        wishbone_pipeline_ack   = Signal()
+        wishbone_pipeline_dat_w = Signal()
+        wishbone_pipeline_err   = Signal()
+        self.wbc2wbp_params = dict(
+            # Wishbone classic
+            i_i_mcyc      = wishbone.cyc,
+            i_i_mstb      = wishbone.stb,
+            i_i_mwe       = wishbone.we,
+            i_i_maddr     = wishbone.adr,
+            i_i_mdata     = wishbone.dat_r,
+            i_i_msel      = wishbone.sel,
+            o_o_mack      = wishbone.ack,
+            o_o_mdata     = wishbone.dat_w,
+            o_o_merr      = wishbone.err,
+            i_i_mcti      = wishbone.cti,
+            i_i_mbte      = wishbone.bte,
+            # Wishbone pipeline
+            o_o_scyc      = wishbone_pipeline_cyc,
+            o_o_sstb      = wishbone_pipeline_stb,
+            o_o_swe       = wishbone_pipeline_we,
+            o_o_saddr     = wishbone_pipeline_adr,
+            o_o_sdata     = wishbone_pipeline_dat_r,
+            o_o_ssel      = wishbone_pipeline_sel,
+            i_i_sstall    = wishbone_pipeline_stall,
+            i_i_sack      = wishbone_pipeline_ack,
+            i_i_sdata     = wishbone_pipeline_dat_w,
+            i_i_serr      = wishbone_pipeline_err,
+        )
+        self.wbp2axi_params = dict(
+            p_C_AXI_DATA_WIDTH  = axi.data_width,
+            p_C_AXI_ADDR_WIDTH  = axi.address_width,
+            p_C_AXI_ID_WIDTH    = axi.id_width,
+            p_DW                = wishbone.data_width,
+            p_AW                = wishbone.adr_width,
+            p_AXI_WRITE_ID      = 0,
+            p_AXI_READ_ID       = 1,
+            p_LGFIFO            = 6,
+            i_i_clk             = ClockSignal(axi.clock_domain),
+            i_i_reset           = ResetSignal(axi.clock_domain),
+
+            # Wishbone master
+            i_i_wb_cyc      = wishbone_pipeline_cyc,
+            i_i_wb_stb      = wishbone_pipeline_stb,
+            i_i_wb_we       = wishbone_pipeline_we,
+            i_i_wb_addr     = wishbone_pipeline_adr,
+            i_i_wb_data     = wishbone_pipeline_dat_r,
+            i_i_wb_sel      = wishbone_pipeline_sel,
+            o_o_wb_stall    = wishbone_pipeline_stall,
+            o_o_wb_ack      = wishbone_pipeline_ack,
+            o_o_wb_data     = wishbone_pipeline_dat_w,
+            o_o_wb_err      = wishbone_pipeline_err,
+
+            # AXI write address channel signals
+            o_o_axi_awvalid = axi.aw.valid,
+            i_i_axi_awready = axi.aw.ready,
+            o_o_axi_awaddr  = axi.aw.addr,
+            o_o_axi_awburst = axi.aw.burst,
+            o_o_axi_awlen   = axi.aw.len,
+            o_o_axi_awsize  = axi.aw.size,
+            o_o_axi_awid    = axi.aw.id,
+            o_o_axi_awlock  = axi.aw.lock,
+            o_o_axi_awprot  = axi.aw.prot,
+            o_o_axi_awcache = axi.aw.cache,
+            o_o_axi_awqos   = axi.aw.qos,
+
+            # AXI write data channel signals
+            o_o_axi_wvalid = axi.w.valid,
+            o_o_axi_wlast  = axi.w.last,
+            i_i_axi_wready = axi.w.ready,
+            o_o_axi_wid    = axi.w.id,
+            o_o_axi_wdata  = axi.w.data,
+            o_o_axi_wstrb  = axi.w.strb,
+
+            # AXI write response channel signals
+            i_i_axi_bvalid = axi.b.valid,
+            o_o_axi_bready = axi.b.ready,
+            i_i_axi_bid    = axi.b.id,
+            i_i_axi_bresp  = axi.b.resp,
+
+            # AXI read address channel signals
+            o_o_axi_arvalid = axi.ar.valid,
+            i_i_axi_arready = axi.ar.ready,
+            o_o_axi_araddr  = axi.ar.addr,
+            o_o_axi_arburst = axi.ar.burst,
+            o_o_axi_arlen   = axi.ar.len,
+            o_o_axi_arid    = axi.ar.id,
+            o_o_axi_arlock  = axi.ar.lock,
+            o_o_axi_arsize  = axi.ar.size,
+            o_o_axi_arprot  = axi.ar.prot,
+            o_o_axi_arcache = axi.ar.cache,
+            o_o_axi_arqos   = axi.ar.qos,
+
+            # AXI read data channel signals
+            i_i_axi_rvalid = axi.r.valid,
+            o_o_axi_rready = axi.r.ready,
+            i_i_axi_rlast  = axi.r.last,
+            i_i_axi_rid    = axi.r.id,
+            i_i_axi_rresp  = axi.r.resp,
+            i_i_axi_rdata  = axi.r.data,
+        )
+
+    def do_finalize(self):
+        self.specials += Instance("wbc2pipeline", **self.wbc2wbp_params)
+        self.specials += Instance("wbm2axisp", **self.wbp2axi_params)
