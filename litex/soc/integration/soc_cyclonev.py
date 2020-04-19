@@ -20,8 +20,8 @@ class SoCCycloneV(SoCCore):
     hps_name = "hps_0"
     def __init__(self, platform, clk_freq, hps=False, h2f_width=62, f2h_width=64, **kwargs):
 
-        kwargs["cpu_type"] = None if hps else kwargs.get("cpu_type", None)
-        super(SoCCore, self).__init__(self, platform, clk_freq, **kwargs)
+        kwargs["cpu_type"] = None if hps else kwargs.get("cpu_type", "None")
+        SoCCore.__init__(self, platform, clk_freq, **kwargs)
         self.hps = hps
         self.h2f_width = h2f_width
         self.f2h_width = f2h_width
