@@ -73,7 +73,15 @@ class SoCCycloneV(SoCCore):
 
     # HPS peripherials -----------------------------------------------------------------------------
 
+    def add_hps_peripherials(self):
+        # for p_name, (p_method, p_nums) in self.peripherials_connectors:
+            # for n in p_nums:
+                # pp()
+        # except ConstraintError:
+            # pass
 
+        # for i in range(2):
+            # self.add_hps_emac_peripherial(i)
 
         hps_usb_pads = self.platform.request("hps_usb")
         hps_sd_pads = self.platform.request("hps_sd")
@@ -84,32 +92,42 @@ class SoCCycloneV(SoCCore):
 
         # TODO: I should add the peripherials conditionally if they exist in the platform
         # TODO: Map the preripherials to memory space
-        # ConstraintError: Resource not found: hps:None
+        # HPS ethernet
+        try:
+            hps_enet_pads = self.platform.request("hps_enet")
+            self.hps_params.update(
+                o_hps_io_emac1_inst_TX_CLK = hps_enet_pads.gtx_clk,
+                o_hps_io_emac1_inst_TXD0   = hps_enet_pads.tx_data[0],
+                o_hps_io_emac1_inst_TXD1   = hps_enet_pads.tx_data[1],
+                o_hps_io_emac1_inst_TXD2   = hps_enet_pads.tx_data[2],
+                o_hps_io_emac1_inst_TXD3   = hps_enet_pads.tx_data[3],
+                i_hps_io_emac1_inst_MDIO   = hps_enet_pads.mdio,
+                o_hps_io_emac1_inst_MDC    = hps_enet_pads.mdc,
+                i_hps_io_emac1_inst_RX_CTL = hps_enet_pads.rx_dv,
+                o_hps_io_emac1_inst_TX_CTL = hps_enet_pads.tx_en,
+                i_hps_io_emac1_inst_RX_CLK = hps_enet_pads.rx_clk,
+                i_hps_io_emac1_inst_RXD0   = hps_enet_pads.rx_data[0],
+                i_hps_io_emac1_inst_RXD1   = hps_enet_pads.rx_data[1],
+                i_hps_io_emac1_inst_RXD2   = hps_enet_pads.rx_data[2],
+                i_hps_io_emac1_inst_RXD3   = hps_enet_pads.rx_data[3],
+            )
+        except ConstraintError:
+            pass
+
+        # HPS QSPI
+        try:
+            hps_flash_pads = self.platform.request("hps_flash")
+            self.hps_params.update(
+                io_hps_io_qspi_inst_IO0 = hps_flash_pads.data[0],
+                io_hps_io_qspi_inst_IO1 = hps_flash_pads.data[1],
+                io_hps_io_qspi_inst_IO2 = hps_flash_pads.data[2],
+                io_hps_io_qspi_inst_IO3 = hps_flash_pads.data[3],
+                o_hps_io_qspi_inst_SS0  = hps_flash_pads.ncso,
+                o_hps_io_qspi_inst_CLK  = hps_flash_pads.dclk,
+            )
+        except ConstraintError:
+            pass
         self.hps_params.update(
-            # HPS ethernet
-            o_hps_io_emac1_inst_TX_CLK = hps_enet_pads.gtx_clk,
-            o_hps_io_emac1_inst_TXD0   = hps_enet_pads.tx_data[0],
-            o_hps_io_emac1_inst_TXD1   = hps_enet_pads.tx_data[1],
-            o_hps_io_emac1_inst_TXD2   = hps_enet_pads.tx_data[2],
-            o_hps_io_emac1_inst_TXD3   = hps_enet_pads.tx_data[3],
-            i_hps_io_emac1_inst_MDIO   = hps_enet_pads.mdio,
-            o_hps_io_emac1_inst_MDC    = hps_enet_pads.mdc,
-            i_hps_io_emac1_inst_RX_CTL = hps_enet_pads.rx_dv,
-            o_hps_io_emac1_inst_TX_CTL = hps_enet_pads.tx_en,
-            i_hps_io_emac1_inst_RX_CLK = hps_enet_pads.rx_clk,
-            i_hps_io_emac1_inst_RXD0   = hps_enet_pads.rx_data[0],
-            i_hps_io_emac1_inst_RXD1   = hps_enet_pads.rx_data[1],
-            i_hps_io_emac1_inst_RXD2   = hps_enet_pads.rx_data[2],
-            i_hps_io_emac1_inst_RXD3   = hps_enet_pads.rx_data[3],
-
-            # HPS QSPI
-            io_hps_io_qspi_inst_IO0 = hps_flash_pads.data[0],
-            io_hps_io_qspi_inst_IO1 = hps_flash_pads.data[1],
-            io_hps_io_qspi_inst_IO2 = hps_flash_pads.data[2],
-            io_hps_io_qspi_inst_IO3 = hps_flash_pads.data[3],
-            o_hps_io_qspi_inst_SS0  = hps_flash_pads.ncso,
-            o_hps_io_qspi_inst_CLK  = hps_flash_pads.dclk,
-
             # HPS SD card
             o_hps_io_sdio_inst_CLK  = hps_sd_pads.clk,
             io_hps_io_sdio_inst_CMD = hps_sd_pads.cmd,
