@@ -29,13 +29,6 @@ class SoCCycloneV(SoCCore):
 
         # CycloneV (HPS) --------------------------------------------------------------------------------
         if self.hps:
-            # TODO: how to call hps ip? where is it? name? extension?
-            # everything we need to build the hps ip is under
-            # ${QUARTUS_ROOTDIR}/../ip/altera/hps
-            # I need to generate a QSYS file for the HPS
-            # platform.add_ip(os.path.join("ip", f"{self.platform.name}_{self.hps_name}.qsys"))
-            platform.add_ip(os.path.join("hps", f"{self.platform.name}.qsys"))
-
             self.add_hps_minimal()
             self.add_hps_peripherials()
             self.add_hps_fpga_interfaces()
