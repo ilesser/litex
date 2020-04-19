@@ -172,7 +172,7 @@ class SoCCycloneV(SoCCore):
     # FPGA-2-HPS AXI -------------------------------------------------------------------------------
 
     def add_f2h_axi(self): # TODO id width????
-        self.f2h_axi = f2h_axi = axi.AXIInterface(data_width=64, address_width=32, id_width=8)
+        self.f2h_axi = f2h_axi = axi.AXIInterface(data_width=self.f2h_width, address_width=32, id_width=8)
         self.add_wishbone_to_axi(f2h_axi, base_address=0x43c00000) # TODO: address??
         self.hps_params.update(
             # f2h_axi clk
@@ -231,7 +231,7 @@ class SoCCycloneV(SoCCore):
     # HPS-2-FPGA AXI -------------------------------------------------------------------------------
 
     def add_h2f_axi(self): # TODO id width????
-        self.h2f_axi = h2f_axi = axi.AXIInterface(data_width=64, address_width=32, id_width=8)
+        self.h2f_axi = h2f_axi = axi.AXIInterface(data_width=self.h2f_width, address_width=32, id_width=8)
         self.add_axi_to_wishbone(h2f_axi, base_address=0x43d00000) # TODO: address??
         self.hps_params.update(
             # h2f_axi clk
