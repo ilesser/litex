@@ -367,7 +367,8 @@ class SoCCycloneV(SoCCore):
 
     def do_finalize(self):
         SoCCore.do_finalize(self)
-        self.specials += Instance(self.hps_name, **self.hps_params)
+        if self.hps:
+            self.specials += Instance(self.hps_name, **self.hps_params)
 
     def generate_software_header(self, filename):
         csr_header = get_csr_header(self.csr_regions,
