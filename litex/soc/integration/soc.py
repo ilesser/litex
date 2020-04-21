@@ -776,7 +776,7 @@ class SoC(Module):
             self.bus.add_region("io{}".format(n), SoCIORegion(origin=origin, size=size, cached=False))
         self.mem_map.update(self.cpu.mem_map) # FIXME
         self.csr.update_alignment(self.cpu.data_width)
-        # Add Bus Masters/CSR/IRQs
+        # Add Bus Masters/CSR/IRQs and Slaves
         if not isinstance(self.cpu, cpu.CPUNone):
             if reset_address is None:
                 reset_address = self.mem_map["rom"]
@@ -789,6 +789,12 @@ class SoC(Module):
             if hasattr(self, "ctrl"):
                 self.comb += self.cpu.reset.eq(self.ctrl.reset)
             self.add_config("CPU_RESET_ADDR", reset_address)
+            # TODO: Add Bus Slaves
+            # if hasattr(self.cpu, 'slave_buses'):
+                # for n, (slave_bus, addr) in enumerate(self.cpu.slave_buses):
+                    # # TODO: How can I add a slave given and addres?
+                    # # Do I need to point to a region?
+                    # self.bus.add_slave(name="cpu_slave_bus{}".format(n), slave=cpu_bus)#, region=addr)
         # Add constants
         self.add_config("CPU_TYPE",    str(name))
         self.add_config("CPU_VARIANT", str(variant.split('+')[0]))
