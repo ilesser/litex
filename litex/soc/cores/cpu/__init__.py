@@ -37,6 +37,7 @@ from litex.soc.cores.cpu.minerva import Minerva
 from litex.soc.cores.cpu.rocket import RocketRV64
 from litex.soc.cores.cpu.microwatt import Microwatt
 from litex.soc.cores.cpu.blackparrot import BlackParrotRV64
+from litex.soc.cores.cpu.hps import HPSDecoder
 
 CPUS = {
     "None"       : CPUNone,
@@ -48,6 +49,7 @@ CPUS = {
     "rocket"     : RocketRV64,
     "microwatt"  : Microwatt,
     "blackparrot" : BlackParrotRV64,
+    "hps"        : HPSDecoder,
 }
 
 # CPU Variants/Extensions Definition ---------------------------------------------------------------
