@@ -67,11 +67,7 @@ class CycloneV(CPU):
     HWLIBS_ROOT          = "$(SOCEDS_ROOT)/ip/altera/hps/altera_hps/hwlib"
     gcc_triple           = ("arm-unknown-elf", "arm-linux", "arm-none-elf")
     linker_output_format = "elf64-littleriscv"
-    io_regions           = {
-        # origin, length
-        0x10000000: 0x10000000,
-        0x20000000: 0x10000000,
-    }
+    io_regions           = {0x10000000: 0x80000000} # origin, length
 
     @property
     def mem_map(self):
@@ -89,7 +85,7 @@ class CycloneV(CPU):
         flags =  "-mno-save-restore "
         flags += "-march=arm  -mabi=lp64 "
         flags += "-D__arm__ "
-        flags += f"-I {self.HW_LIBS}/include "
+        flags += f"-I {self.HWLIBS_ROOT}/include "
         return flags
 
     def __init__(self, platform, variant="standard"):
@@ -251,8 +247,9 @@ class CycloneV(CPU):
             self.add_axi_lw_to_wishbone(self.add_h2f_axi_lw()),
         ]
         self.slave_buses = [
-            (self.add_wishbone_to_axi(self.add_f2h_axi()),       0x10000000),
-            (self.add_wishbone_to_axi(self.add_f2h_sdram_axi()), 0x20000000),
+            # slave , region_origin, region_size, region_mode
+            (self.add_wishbone_to_axi(self.add_f2h_axi()),       0x40000000, 0x20000000, "rw"),
+            (self.add_wishbone_to_axi(self.add_f2h_sdram_axi()), 0x60000000, 0x20000000, "rw"),
         ]
         # TODO: Rename self.buses --> self.master_buses in every CPU
         self.buses = self.master_buses

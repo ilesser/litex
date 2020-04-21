@@ -781,20 +781,22 @@ class SoC(Module):
             if reset_address is None:
                 reset_address = self.mem_map["rom"]
             self.cpu.set_reset_address(reset_address)
-            for n, cpu_bus in enumerate(self.cpu.buses):
-                self.bus.add_master(name="cpu_bus{}".format(n), master=cpu_bus)
+            for n, cpu_master_bus in enumerate(self.cpu.buses):
+                self.bus.add_master(name="cpu_master_bus{}".format(n), master=cpu_master_bus)
             self.csr.add("cpu", use_loc_if_exists=True)
             for name, loc in self.cpu.interrupts.items():
                 self.irq.add(name, loc)
             if hasattr(self, "ctrl"):
                 self.comb += self.cpu.reset.eq(self.ctrl.reset)
             self.add_config("CPU_RESET_ADDR", reset_address)
-            # TODO: Add Bus Slaves
-            # if hasattr(self.cpu, 'slave_buses'):
-                # for n, (slave_bus, addr) in enumerate(self.cpu.slave_buses):
-                    # # TODO: How can I add a slave given and addres?
-                    # # Do I need to point to a region?
-                    # self.bus.add_slave(name="cpu_slave_bus{}".format(n), slave=cpu_bus)#, region=addr)
+            # Add Bus Slaves
+            if hasattr(self.cpu, 'slave_buses'):
+                for n, (cpu_slave_bus, origin, size, mode) in enumerate(self.cpu.slave_buses):
+                    self.bus.add_slave(
+                        name="cpu_slave_bus{}".format(n),
+                        slave=cpu_slave_bus,
+                        region=SoCRegion(origin=origin, size=size, mode=mode)
+                    )
         # Add constants
         self.add_config("CPU_TYPE",    str(name))
         self.add_config("CPU_VARIANT", str(variant.split('+')[0]))
