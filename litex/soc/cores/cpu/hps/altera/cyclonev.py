@@ -1,8 +1,8 @@
-# litex/soc/cores/cpu/rocket/core.py
-# Rocket Chip core support for the LiteX SoC.
+# litex/soc/cores/cpu/hps/altera/cyclonev.py
+# Altera CycloneV core support for the LiteX SoC.
 #
-# Author: Gabriel L. Somlo <somlo@cmu.edu>
-# Copyright (c) 2019, Carnegie Mellon University
+# Author: Ignacio Lesser <ignacio.lesser@gmail.com>
+# Copyright (c) 2020
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
