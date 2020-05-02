@@ -804,7 +804,8 @@ class SoC(Module):
         self.add_config("CPU_TYPE",    str(name))
         self.add_config("CPU_VARIANT", str(variant.split('+')[0]))
         self.add_constant("CONFIG_CPU_HUMAN_NAME", getattr(self.cpu, "human_name", "Unknown"))
-        self.add_constant("CONFIG_CPU_NOP", getattr(self.cpu, "nop"))
+        if hasattr(self.cpu, "nop"):
+            self.add_constant("CONFIG_CPU_NOP", getattr(self.cpu, "nop"))
 
     def add_timer(self, name="timer0"):
         self.check_if_exists(name)
