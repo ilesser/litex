@@ -52,7 +52,7 @@ CPUS = {
     "rocket"      : RocketRV64,
     "microwatt"   : Microwatt,
     "blackparrot" : BlackParrotRV64,
-    "serv"        : SERV
+    "serv"        : SERV,
     "hps"         : HPSDecoder,
 }
 
