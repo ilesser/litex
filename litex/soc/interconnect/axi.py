@@ -326,6 +326,49 @@ class AXI2AXILite(Module):
             )
         )
 
+# AXI to AXI Lite ----------------------------------------------------------------------------------
+class AXILite2AXI(Module):
+    def __init__(self, axi_lite, axi):
+        assert axi_lite.data_width    == axi.data_width
+        assert axi_lite.address_width == axi.address_width
+        self.comb += [
+            # Address write channel
+            axi.aw.addr.eq(axi_lite.aw.addr),
+            axi.aw.burst.eq(0),
+            axi.aw.len.eq(0),
+            axi.aw.size.eq(axi_lite.address_width),
+            axi.aw.lock.eq(0),
+            axi.aw.prot.eq(0),
+            axi.aw.cache.eq(0),
+            axi.aw.qos.eq(0),
+            axi.aw.id.eq(axi_lite.aw.id),
+            axi.aw.valid.eq(axi_lite.aw.valid),
+            axi_lite.aw.ready.eq(axi.aw.ready),
+            # Write channel
+            axi.w.data.eq(axi_lite.w.data),
+            axi.w.last.eq(1),
+            axi.w.strb.eq(axi_lite.w.strb),
+            axi.w.valid.eq(axi_lite.w.valid),
+            axi_lite.w.ready.eq(axi.w.ready),
+            # Address read channel
+            axi.ar.addr.eq(axi_lite.ar.addr),
+            axi.ar.burst.eq(0),
+            axi.ar.len.eq(0),
+            axi.ar.size.eq(axi_lite.address_width),
+            axi.ar.lock.eq(0),
+            axi.ar.prot.eq(0),
+            axi.ar.cache.eq(0),
+            axi.ar.qos.eq(0),
+            axi.ar.id.eq(axi_lite.ar.id),
+            axi.ar.valid.eq(axi_lite.ar.valid),
+            axi_lite.ar.ready.eq(axi.ar.ready),
+            # Read channel
+            axi_lite.r.data.eq(axi.r.data),
+            axi_lite.r.resp.eq(axi.r.resp),
+            axi_lite.r.valid.eq(axi.r.valid),
+            axi.r.ready.eq(axi_lite.r.ready),
+        ]
+
 # AXI Lite to Wishbone -----------------------------------------------------------------------------
 
 class AXILite2Wishbone(Module):
