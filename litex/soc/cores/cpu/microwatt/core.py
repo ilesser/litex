@@ -6,6 +6,7 @@ import os
 
 from migen import *
 
+from litex import get_data_mod
 from litex.soc.interconnect import wishbone
 from litex.soc.cores.cpu import CPU
 
@@ -15,10 +16,12 @@ CPU_VARIANTS = ["standard"]
 
 class Microwatt(CPU):
     name                 = "microwatt"
+    human_name           = "Microwatt"
     data_width           = 64
     endianness           = "little"
     gcc_triple           = ("powerpc64le-linux")
     linker_output_format = "elf64-powerpcle"
+    nop                  = "nop"
     io_regions           = {0xc0000000: 0x10000000} # origin, length
 
     @property
@@ -41,12 +44,13 @@ class Microwatt(CPU):
 
     def __init__(self, platform, variant="standard"):
         assert variant in CPU_VARIANTS, "Unsupported variant %s" % variant
-        self.platform = platform
-        self.variant  = variant
-        self.reset    = Signal()
-        self.wb_insn  = wb_insn = wishbone.Interface(data_width=64, adr_width=28)
-        self.wb_data  = wb_data = wishbone.Interface(data_width=64, adr_width=28)
-        self.buses    = [wb_insn, wb_data]
+        self.platform     = platform
+        self.variant      = variant
+        self.reset        = Signal()
+        self.wb_insn      = wb_insn = wishbone.Interface(data_width=64, adr_width=28)
+        self.wb_data      = wb_data = wishbone.Interface(data_width=64, adr_width=28)
+        self.periph_buses = [wb_insn, wb_data]
+        self.memory_buses = []
 
         # # #
 
@@ -98,7 +102,9 @@ class Microwatt(CPU):
 
     @staticmethod
     def add_sources(platform):
-        sdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "sources")
+        sdir = os.path.join(
+            get_data_mod("cpu", "microwatt").data_location,
+            "sources")
         platform.add_sources(sdir,
             # Common / Types / Helpers
             "decode_types.vhdl",

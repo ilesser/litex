@@ -8,7 +8,8 @@ from collections import OrderedDict
 
 import urllib.request
 
-current_path = os.path.dirname(os.path.realpath(__file__))
+current_path = os.path.abspath(os.curdir)
+
 
 # Repositories -------------------------------------------------------------------------------------
 
@@ -16,9 +17,11 @@ current_path = os.path.dirname(os.path.realpath(__file__))
 repos = [
     # HDL
     ("migen",        ("https://github.com/m-labs/",        True,  True)),
+    ("nmigen",       ("https://github.com/nmigen/",        True,  True)),
 
     # LiteX SoC builder
-    ("litex",        ("https://github.com/enjoy-digital/", True,  True)),
+    ("pythondata-software-compiler_rt", ("https://github.com/litex-hub/",     False, True)),
+    ("litex",                           ("https://github.com/enjoy-digital/", False, True)),
 
     # LiteX cores ecosystem
     ("liteeth",      ("https://github.com/enjoy-digital/", False, True)),
@@ -34,7 +37,18 @@ repos = [
 
     # LiteX boards support
     ("litex-boards", ("https://github.com/litex-hub/",     False, True)),
+
+    # Optional LiteX data
+    ("pythondata-misc-tapcfg",     ("https://github.com/litex-hub/", False, True)),
+    ("pythondata-cpu-lm32",        ("https://github.com/litex-hub/", False, True)),
+    ("pythondata-cpu-mor1kx",      ("https://github.com/litex-hub/", False, True)),
+    ("pythondata-cpu-picorv32",    ("https://github.com/litex-hub/", False, True)),
+    ("pythondata-cpu-serv",        ("https://github.com/litex-hub/", False, True)),
+    ("pythondata-cpu-vexriscv",    ("https://github.com/litex-hub/", False, True)),
+    ("pythondata-cpu-rocket",      ("https://github.com/litex-hub/", False, True)),
+    ("pythondata-cpu-minerva",     ("https://github.com/litex-hub/", False, True)),
 ]
+
 repos = OrderedDict(repos)
 
 # RISC-V toolchain download ------------------------------------------------------------------------
@@ -85,14 +99,15 @@ if len(sys.argv) < 2:
 if "init" in sys.argv[1:]:
     os.chdir(os.path.join(current_path))
     for name in repos.keys():
-        url, need_recursive, need_develop = repos[name]
-        # clone repo (recursive if needed)
-        print("[cloning " + name + "]...")
-        full_url = url + name
-        opts = "--recursive" if need_recursive else ""
-        subprocess.check_call(
-            "git clone " + full_url + " " + opts,
-            shell=True)
+        if not os.path.exists(name):
+            url, need_recursive, need_develop = repos[name]
+            # clone repo (recursive if needed)
+            print("[cloning " + name + "]...")
+            full_url = url + name
+            opts = "--recursive" if need_recursive else ""
+            subprocess.check_call(
+                "git clone " + full_url + " " + opts,
+                shell=True)
 
 # Repositories installation
 if "install" in sys.argv[1:]:
@@ -120,11 +135,13 @@ if "install" in sys.argv[1:]:
 # Repositories update
 if "update" in sys.argv[1:]:
     for name in repos.keys():
+        if not os.path.exists(name):
+            raise Exception("{} not initialized, please (re)-run init and install first.".format(name))
         # update
         print("[updating " + name + "]...")
         os.chdir(os.path.join(current_path, name))
         subprocess.check_call(
-            "git pull",
+            "git pull --ff-only",
             shell=True)
         os.chdir(os.path.join(current_path))
 

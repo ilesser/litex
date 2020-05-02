@@ -26,6 +26,8 @@ class CPUNone(CPU):
     data_width           = 32
     reset_address        = 0x00000000
     io_regions           = {0x00000000: 0x100000000} # origin, length
+    periph_buses         = []
+    memory_buses         = []
 
 # CPUS ---------------------------------------------------------------------------------------------
 
@@ -37,19 +39,21 @@ from litex.soc.cores.cpu.minerva import Minerva
 from litex.soc.cores.cpu.rocket import RocketRV64
 from litex.soc.cores.cpu.microwatt import Microwatt
 from litex.soc.cores.cpu.blackparrot import BlackParrotRV64
+from litex.soc.cores.cpu.serv import SERV
 from litex.soc.cores.cpu.hps import HPSDecoder
 
 CPUS = {
-    "None"       : CPUNone,
-    "lm32"       : LM32,
-    "mor1kx"     : MOR1KX,
-    "picorv32"   : PicoRV32,
-    "vexriscv"   : VexRiscv,
-    "minerva"    : Minerva,
-    "rocket"     : RocketRV64,
-    "microwatt"  : Microwatt,
+    "None"        : CPUNone,
+    "lm32"        : LM32,
+    "mor1kx"      : MOR1KX,
+    "picorv32"    : PicoRV32,
+    "vexriscv"    : VexRiscv,
+    "minerva"     : Minerva,
+    "rocket"      : RocketRV64,
+    "microwatt"   : Microwatt,
     "blackparrot" : BlackParrotRV64,
-    "hps"        : HPSDecoder,
+    "serv"        : SERV
+    "hps"         : HPSDecoder,
 }
 
 # CPU Variants/Extensions Definition ---------------------------------------------------------------
@@ -93,7 +97,7 @@ Possible Values:
 # CPU Variants/Extensions Check/Format -------------------------------------------------------------
 
 def check_format_cpu_variant(variant):
-	# Support the old style which used underscore for separator
+    # Support the old style which used underscore for separator
     if variant is None:
         variant = "standard"
     if variant == "debug":
