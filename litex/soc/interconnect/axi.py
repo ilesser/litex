@@ -541,11 +541,28 @@ class Wishbone2AXI(Module):
     def __init__(self, wishbone, axi, platform, base_address=0x00000000):
         # First do Wishbone classic to AXI Lite
         # Then do AXI Lite to AXI
-        #              +--------------+      +-------------+
-        # wishbone --> |  wb2axilite  | -->  | axilite2axi | --> axi
-        #              +--------------+      +-------------+
-        #              (M)          (S)      (M)         (S)
-        axi_lite          = AXILiteInterface(axi.data_width, axi.address_width)
-        wishbone2axi_lite = Wishbone2AXILite(wishbone, axi_lite, base_address)
+        #              +--------------+     +-----------------+     +-------------+
+        # wishbone --> |  wb2axilite  | --> | adapt adr width | --> | axilite2axi | --> axi
+        #              +--------------+     +-----------------+     +-------------+
+        #              (M)          (S)                             (M)         (S)
+        wishbone_adr_shift = Wishbone2AXILite.get_wb_adr_shift(axi)
+        axi_lite_intermediate = AXILiteInterface(
+            axi.data_width,
+            axi.address_width + wishbone_adr_shift,
+        )
+        axi_lite = AXILiteInterface(
+            axi.data_width,
+            axi.address_width,
+        )
+        wishbone2axi_lite = Wishbone2AXILite(wishbone, axi_lite_intermediate, base_address)
+        axi_lite.w = axi_lite_intermediate.w
+        axi_lite.r = axi_lite_intermediate.r
+        axi_lite.b = axi_lite_intermediate.b
+        for ax in ["aw", "ar"]:
+            self.comb += [
+                getattr(axi_lite, ax).addr.eq(getattr(axi_lite_intermediate, ax).addr[wishbone_adr_shift:]),
+                getattr(axi_lite, ax).valid.eq(getattr(axi_lite_intermediate, ax).valid),
+                getattr(axi_lite_intermediate, ax).ready.eq(getattr(axi_lite, ax).ready),
+            ]
         axi_lite2axi      = AXILite2AXI(axi_lite, axi)
         self.submodules += wishbone2axi_lite, axi_lite2axi
