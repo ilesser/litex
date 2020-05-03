@@ -252,7 +252,7 @@ class CycloneV(CPU):
             (self.add_wishbone_to_axi(self.add_f2h_sdram_axi()), 0x60000000, 0x20000000, "rw"),
         ]
         # TODO: Rename self.buses --> self.master_buses in every CPU
-        self.buses = self.master_buses
+        self.periph_buses = self.master_buses
 
     # HPS-2-FPGA AXI -------------------------------------------------------------------------------
 
