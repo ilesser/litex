@@ -341,7 +341,7 @@ class AXILite2AXI(Module):
             axi.aw.prot.eq(0),
             axi.aw.cache.eq(0),
             axi.aw.qos.eq(0),
-            axi.aw.id.eq(axi_lite.aw.id),
+            axi.aw.id.eq(0),
             axi.aw.valid.eq(axi_lite.aw.valid),
             axi_lite.aw.ready.eq(axi.aw.ready),
             # Write channel
@@ -359,7 +359,7 @@ class AXILite2AXI(Module):
             axi.ar.prot.eq(0),
             axi.ar.cache.eq(0),
             axi.ar.qos.eq(0),
-            axi.ar.id.eq(axi_lite.ar.id),
+            axi.ar.id.eq(0),
             axi.ar.valid.eq(axi_lite.ar.valid),
             axi_lite.ar.ready.eq(axi.ar.ready),
             # Read channel
