@@ -456,7 +456,7 @@ class AXI2Wishbone(Module):
 
 class Wishbone2AXILite(Module):
     def __init__(self, wishbone, axi_lite, base_address=0x00000000):
-        wishbone_adr_shift = log2_int(axi_lite.data_width//8)
+        wishbone_adr_shift = self.get_wb_adr_shift(axi_lite)
         assert axi_lite.data_width    == len(wishbone.dat_r)
         assert axi_lite.address_width == len(wishbone.adr) + wishbone_adr_shift
 
@@ -526,6 +526,10 @@ class Wishbone2AXILite(Module):
             wishbone.err.eq(1),
             NextState("IDLE")
         )
+
+    @staticmethod
+    def get_wb_adr_shift(axi_lite):
+        return log2_int(axi_lite.data_width//8)
 
 class Wishbone2AXI(Module):
     '''Wishbone to AXI4 interface.
