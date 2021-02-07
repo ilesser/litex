@@ -1041,21 +1041,21 @@ class LiteXSoC(SoC):
                     if port.data_width == mem_bus.data_width:
                         self.logger.info("Matching AXI MEM data width ({})\n".format(port.data_width))
                         self.submodules += LiteDRAMAXI2Native(
-                            axi          = self.cpu.mem_axi,
+                            axi          = mem_bus,
                             port         = port,
                             base_address = self.bus.regions["main_ram"].origin)
                     # If different data_width, do the adaptation and connect it via Wishbone.
                     else:
                         self.logger.info("Converting MEM data width: {} to {} via Wishbone".format(
                             port.data_width,
-                            self.cpu.mem_axi.data_width))
+                            mem_bus.data_width))
                         # FIXME: replace WB data-width converter with native AXI converter!!!
                         mem_wb  = wishbone.Interface(
-                            data_width = self.cpu.mem_axi.data_width,
-                            adr_width  = 32-log2_int(self.cpu.mem_axi.data_width//8))
+                            data_width = mem_bus.data_width,
+                            adr_width  = 32-log2_int(mem_bus.data_width//8))
                         # NOTE: AXI2Wishbone FSMs must be reset with the CPU!
                         mem_a2w = ResetInserter()(axi.AXI2Wishbone(
-                            axi          = self.cpu.mem_axi,
+                            axi          = mem_bus,
                             wishbone     = mem_wb,
                             base_address = 0))
                         self.comb += mem_a2w.reset.eq(ResetSignal() | self.cpu.reset)

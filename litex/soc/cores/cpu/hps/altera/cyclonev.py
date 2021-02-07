@@ -73,11 +73,15 @@ class CycloneV(CPU):
     def mem_map(self):
         #TODO: DEFINE MEM MAP
         return {
-            "rom"      : 0x10000000,
-            "sram"     : 0x11000000,
-            "csr"      : 0x12000000,
-            "ethmac"   : 0x30000000,
-            "main_ram" : 0x80000000,
+            "rom"         : 0x10000000,
+            "sram"        : 0x11000000,
+            "csr"         : 0x12000000,
+            "ethmac"      : 0x30000000,
+            "main_ram"    : 0x40000000,
+            "ddram"       : 0x80000000,
+            "fpgaslaves"  : 0xC0000000,
+            "peripherials": 0xFC000000,
+            "lwfpgaslaves": 0xFF200000,
         }
 
     @property
@@ -101,7 +105,6 @@ class CycloneV(CPU):
         self.add_hps_sdram()
         self.add_hps_peripherials()
         self.add_hps_fpga_interfaces()
-        self.add_sources(platform, variant)
 
     # HPS SDRAM ------------------------------------------------------------------------------------
 
@@ -248,11 +251,12 @@ class CycloneV(CPU):
         ]
         self.slave_buses = [
             # slave , region_origin, region_size, region_mode
-            (self.add_wishbone_to_axi(self.add_f2h_axi()),       0x40000000, 0x20000000, "rw"),
-            (self.add_wishbone_to_axi(self.add_f2h_sdram_axi()), 0x60000000, 0x20000000, "rw"),
+            (self.add_wishbone_to_axi(self.add_f2h_axi()),       0xC0000000, 0x3C000000, "rw"),
+            (self.add_wishbone_to_axi(self.add_f2h_sdram_axi()), 0x80000000, 0x40000000, "rw"),
         ]
-        # TODO: Rename self.buses --> self.master_buses in every CPU
+        # TODO: Rename self.periph_buses --> self.master_buses in every CPU?
         self.periph_buses = self.master_buses
+        self.memory_buses = []
 
     # HPS-2-FPGA AXI -------------------------------------------------------------------------------
 
@@ -537,6 +541,7 @@ class CycloneV(CPU):
 
     def add_wishbone_to_axi(self, axi, base_address=0x00000000):
         wb = wishbone.Interface(data_width=axi.data_width, adr_width=axi.address_width)
+        # setattr(self,axi.__name__.replace("axi", "wb"), wb)
         wishbone2axi = Wishbone2AXI(wb, axi, self.platform, base_address=base_address)
         self.submodules += wishbone2axi
         return wb
@@ -545,22 +550,6 @@ class CycloneV(CPU):
         assert not hasattr(self, "reset_address")
         self.reset_address = reset_address
         assert reset_address == 0x10000000, "cpu_reset_addr hardcoded in during elaboration!"
-
-    @staticmethod
-    def add_sources(platform, variant="standard"):
-        vdir = os.path.join(
-            os.path.abspath(os.path.dirname(__file__)), "verilog")
-        platform.add_sources(
-            os.path.join(vdir, "generated-src"),
-            CPU_VARIANTS[variant] + ".v",
-            CPU_VARIANTS[variant] + ".behav_srams.v",
-        )
-        platform.add_sources(
-            os.path.join(vdir, "vsrc"),
-            "plusarg_reader.v",
-            "AsyncResetReg.v",
-            "EICG_wrapper.v",
-        )
 
     def do_finalize(self):
         assert hasattr(self, "reset_address")
